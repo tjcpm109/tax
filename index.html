@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>含稅金額換算 (5% 營業稅)</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1d2433;--sub:#667085;--line:#dfe3ea;--acc:#1f5eff}
+@media (prefers-color-scheme:dark){:root{--bg:#12151c;--card:#1b202b;--ink:#e8ebf2;--sub:#98a2b3;--line:#2c3342;--acc:#6b95ff}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;padding:24px 16px}
+main{max-width:560px;margin:0 auto}
+h1{font-size:1.4rem;margin:0 0 4px}
+p.note{color:var(--sub);margin:0 0 20px;font-size:.9rem}
+label{display:block;font-weight:600;margin-bottom:6px}
+input{width:100%;font-size:1.4rem;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+input:focus{outline:2px solid var(--acc);outline-offset:1px}
+.row{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-top:12px}
+.row .t{color:var(--sub);font-size:.85rem}
+.row .n{font-size:1.5rem;font-weight:700;font-variant-numeric:tabular-nums}
+.row .c{margin-top:2px;word-break:break-all}
+.row .c small{color:var(--sub);display:block}
+button{margin-top:8px;border:1px solid var(--line);background:none;color:var(--acc);border-radius:8px;padding:4px 12px;cursor:pointer;font:inherit;font-size:.85rem}
+.err{color:#d92d20;margin-top:8px;min-height:1.5em}
+</style>
+</head>
+<body>
+<main>
+<h1>含稅金額換算</h1>
+<p class="note">輸入含稅總金額,算出稅前金額與 5% 稅額(稅前 = 總額 ÷ 1.05,四捨五入至整數)。</p>
+<label for="amt">含稅總金額 (元)</label>
+<input id="amt" inputmode="numeric" autocomplete="off" placeholder="例如 12345">
+<div class="err" id="err"></div>
+<div id="out"></div>
+</main>
+<script>
+const UP={D:"零壹貳參肆伍陸柒捌玖",U:["仟","佰","拾",""]};
+const LOW={D:"零一二三四五六七八九",U:["千","百","十",""]};
+const BIG=["","萬","億","兆"];
+
+function section(n,S){
+  const d=String(n).padStart(4,"0");let s="",zero=false;
+  for(let i=0;i<4;i++){
+    const v=+d[i];
+    if(v===0){if(s)zero=true;}
+    else{if(zero){s+=S.D[0];zero=false;}s+=S.D[v]+S.U[i];}
+  }
+  return s;
+}
+function toChinese(num,S){
+  if(num===0)return S.D[0];
+  const str=String(num),groups=[];
+  for(let i=str.length;i>0;i-=4)groups.unshift(+str.slice(Math.max(0,i-4),i));
+  let s="",pending=false;
+  groups.forEach((g,idx)=>{
+    const big=BIG[groups.length-1-idx];
+    if(g===0){pending=true;return;}
+    if(s&&(pending||g<1000))s+=S.D[0];
+    s+=section(g,S)+big;pending=false;
+  });
+  if(S===LOW&&s.startsWith("一十"))s=s.slice(1);
+  return s;
+}
+const fmt=n=>n.toLocaleString("en-US");
+function row(title,n){
+  return `<div class="row"><div class="t">${title}</div>
+  <div class="n">${fmt(n)}</div>
+  <div class="c">新臺幣${toChinese(n,UP)}元整<small>${toChinese(n,LOW)}元</small></div>
+  <button onclick="navigator.clipboard.writeText('新臺幣${toChinese(n,UP)}元整')">複製大寫</button></div>`;
+}
+function calc(){
+  const raw=document.getElementById("amt").value.replace(/[,\s]/g,"");
+  const err=document.getElementById("err"),out=document.getElementById("out");
+  err.textContent="";out.innerHTML="";
+  if(!raw)return;
+  if(!/^\d+(\.\d+)?$/.test(raw)){err.textContent="請輸入數字。";return;}
+  const total=Math.round(Number(raw));
+  if(total>9999999999999){err.textContent="金額過大(上限約 9.99 兆)。";return;}
+  const pre=Math.round(total/1.05),tax=total-pre;
+  out.innerHTML=row("含稅總金額",total)+row("稅前金額",pre)+row("營業稅 (5%)",tax);
+}
+document.getElementById("amt").addEventListener("input",calc);
+</script>
+</body>
+</html>
